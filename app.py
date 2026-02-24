@@ -36,7 +36,7 @@ def extract_recipe():
             })
 
         # 2. Call Gemini
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         
         prompt = """Extract the recipe from these images. Return ONLY a valid JSON object with exactly these fields:
 {
