@@ -1,46 +1,44 @@
 import os
 import json
 import base64
+import re
 import google.generativeai as genai
 from notion_client import Client
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from youtube_transcript_api import YouTubeTranscriptApi
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
-@app.route('/')
-def index():
-    return send_from_directory('static', 'index.html')
+def extract_video_id(url):
+    patterns = [
+        r'youtube\.com/shorts/([a-zA-Z0-9_-]+)',
+        r'youtu\.be/([a-zA-Z0-9_-]+)',
+        r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
 
-@app.route('/extract', methods=['POST'])
-def extract_recipe():
+def get_transcript(video_id):
     try:
-        if 'images' not in request.files:
-            return jsonify({'error': 'No images provided'}), 400
+        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+        return " ".join([t['text'] for t in transcript_list])
+    except Exception:
+        try:
+            # Try any available language
+            transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+            transcript = transcripts.find_generated_transcript(['en', 'ko', 'fr', 'es', 'ja'])
+            return " ".join([t['text'] for t in transcript.fetch()])
+        except Exception as e:
+            raise Exception(f"No captions available for this video. Try uploading a screenshot instead.")
 
-        files = request.files.getlist('images')
-        if not files:
-            return jsonify({'error': 'No images provided'}), 400
-
-        image_parts = []
-        for file in files:
-            image_data = file.read()
-            image_parts.append({
-                "mime_type": file.content_type,
-                "data": base64.b64encode(image_data).decode('utf-8')
-            })
-
-        model = genai.GenerativeModel('gemini-2.5-flash-lite')
-
-        prompt = """Look at these images carefully.
-
-CASE 1: If the image contains an actual written recipe (with ingredients and steps listed), extract it exactly.
-CASE 2: If the image only shows a food photo without a written recipe, create a realistic recipe for what you see in the photo.
-
-Return ONLY a valid JSON object with exactly these fields:
+RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these fields:
 {
   "title": "recipe name",
   "isImaginary": false,
@@ -49,24 +47,89 @@ Return ONLY a valid JSON object with exactly these fields:
     "sauce": ["sauce ingredient 1"],
     "spicesAndHerbs": ["spice 1", "herb 1"]
   },
-  "steps": ["step 1", "step 2"],
+  "steps": [
+    {
+      "instruction": "step instruction text",
+      "ingredients": ["ingredient A", "ingredient B"]
+    }
+  ],
   "cookTime": "time or null",
   "servings": "servings or null"
 }
 
-Set "isImaginary" to true if you are guessing/creating the recipe from a photo, false if you extracted it from written text.
+Set "isImaginary" to true only if you are guessing from a photo with no recipe text.
 Categorize ingredients: main = proteins, vegetables, grains, dairy. sauce = liquids, oils, vinegars, condiments. spicesAndHerbs = dried/fresh spices, herbs, seasonings, salt, pepper.
-If a category is empty return an empty array. No markdown, no extra text, just the JSON."""
+For each step, list only the ingredients actually used in that step. If none, return empty array.
+No markdown, no extra text, just the JSON."""
 
-        parts = [prompt]
-        for img in image_parts:
-            parts.append({"inline_data": img})
+@app.route('/')
+def index():
+    return send_from_directory('static', 'index.html')
 
-        response = model.generate_content(parts)
-        text = response.text.strip()
-        text = text.replace('```json', '').replace('```', '').strip()
-        recipe = json.loads(text)
+@app.route('/extract', methods=['POST'])
+def extract_recipe():
+    try:
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
+        recipe = None
 
+        # --- YOUTUBE URL MODE ---
+        youtube_url = request.form.get('youtube_url', '').strip()
+        if youtube_url:
+            video_id = extract_video_id(youtube_url)
+            if not video_id:
+                return jsonify({'error': 'Invalid YouTube URL. Please use a YouTube Shorts or regular YouTube link.'}), 400
+
+            transcript = get_transcript(video_id)
+
+            prompt = f"""Extract a recipe from this YouTube video transcript.
+            
+Transcript:
+{transcript}
+
+{RECIPE_PROMPT_JSON}"""
+
+            response = model.generate_content(prompt)
+            text = response.text.strip()
+            text = text.replace('```json', '').replace('```', '').strip()
+            recipe = json.loads(text)
+            recipe['isImaginary'] = False
+            source = "youtube"
+
+        # --- IMAGE MODE ---
+        else:
+            if 'images' not in request.files:
+                return jsonify({'error': 'Please provide either a YouTube URL or upload images.'}), 400
+
+            files = request.files.getlist('images')
+            if not files:
+                return jsonify({'error': 'No images provided'}), 400
+
+            image_parts = []
+            for file in files:
+                image_data = file.read()
+                image_parts.append({
+                    "mime_type": file.content_type,
+                    "data": base64.b64encode(image_data).decode('utf-8')
+                })
+
+            prompt = f"""Look at these images carefully.
+
+CASE 1: If the image contains an actual written recipe (with ingredients and steps listed), extract it exactly.
+CASE 2: If the image only shows a food photo without a written recipe, create a realistic recipe for what you see in the photo.
+
+{RECIPE_PROMPT_JSON}"""
+
+            parts = [prompt]
+            for img in image_parts:
+                parts.append({"inline_data": img})
+
+            response = model.generate_content(parts)
+            text = response.text.strip()
+            text = text.replace('```json', '').replace('```', '').strip()
+            recipe = json.loads(text)
+            source = "image"
+
+        # --- SAVE TO NOTION ---
         notion_token = os.environ.get("NOTION_TOKEN")
         notion_page_id = os.environ.get("NOTION_PAGE_ID")
 
@@ -77,17 +140,60 @@ If a category is empty return an empty array. No markdown, no extra text, just t
 
         is_imaginary = recipe.get("isImaginary", False)
         ingredients = recipe.get("ingredients", {})
+        steps = recipe.get("steps", [])
 
         if isinstance(ingredients, list):
-            main_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients]
-            sauce_blocks = []
-            spice_blocks = []
+            main_list = ingredients
+            sauce_list = []
+            spice_list = []
         else:
-            main_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients.get("main", [])]
-            sauce_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients.get("sauce", [])]
-            spice_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients.get("spicesAndHerbs", [])]
+            main_list = ingredients.get("main", [])
+            sauce_list = ingredients.get("sauce", [])
+            spice_list = ingredients.get("spicesAndHerbs", [])
 
-        step_blocks = [{"object": "block", "type": "numbered_list_item", "numbered_list_item": {"rich_text": [{"type": "text", "text": {"content": step}}]}} for step in recipe.get("steps", [])]
+        def ingredient_checkbox(text):
+            return {
+                "object": "block",
+                "type": "to_do",
+                "to_do": {
+                    "rich_text": [{"type": "text", "text": {"content": text}}],
+                    "checked": False
+                }
+            }
+
+        def step_blocks_builder(steps):
+            blocks = []
+            for step in steps:
+                if isinstance(step, str):
+                    instruction = step
+                    step_ingredients = []
+                else:
+                    instruction = step.get("instruction", "")
+                    step_ingredients = step.get("ingredients", [])
+
+                blocks.append({
+                    "object": "block",
+                    "type": "to_do",
+                    "to_do": {
+                        "rich_text": [{"type": "text", "text": {"content": instruction}}],
+                        "checked": False
+                    }
+                })
+
+                if step_ingredients:
+                    hint_text = "🧂 " + "  ·  ".join(step_ingredients)
+                    blocks.append({
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [{
+                                "type": "text",
+                                "text": {"content": hint_text},
+                                "annotations": {"color": "blue", "italic": True}
+                            }]
+                        }
+                    })
+            return blocks
 
         def heading3(text):
             return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"type": "text", "text": {"content": text}}]}}
@@ -99,9 +205,20 @@ If a category is empty return an empty array. No markdown, no extra text, just t
                 "object": "block",
                 "type": "callout",
                 "callout": {
-                    "rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Ingredients and steps are estimated and may not reflect the actual dish. Use as inspiration only!"}}],
+                    "rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Ingredients and steps are estimated. Use as inspiration only!"}}],
                     "icon": {"emoji": "🤖"},
                     "color": "yellow_background"
+                }
+            })
+
+        if source == "youtube":
+            children.append({
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "rich_text": [{"type": "text", "text": {"content": f"📺 Extracted from YouTube: {youtube_url}"}}],
+                    "icon": {"emoji": "📺"},
+                    "color": "red_background"
                 }
             })
 
@@ -119,29 +236,28 @@ If a category is empty return an empty array. No markdown, no extra text, just t
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "🥘 Ingredients"}}]}},
         ]
 
-        if main_blocks:
+        if main_list:
             children.append(heading3("Main Ingredients"))
-            children.extend(main_blocks)
+            children.extend([ingredient_checkbox(ing) for ing in main_list])
 
-        if sauce_blocks:
+        if sauce_list:
             children.append(heading3("Sauce"))
-            children.extend(sauce_blocks)
+            children.extend([ingredient_checkbox(ing) for ing in sauce_list])
 
-        if spice_blocks:
+        if spice_list:
             children.append(heading3("Spices & Herbs"))
-            children.extend(spice_blocks)
+            children.extend([ingredient_checkbox(ing) for ing in spice_list])
 
         children += [
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "👨‍🍳 Steps"}}]}},
-            *step_blocks,
+            *step_blocks_builder(steps),
         ]
 
         title = recipe.get("title", "Untitled Recipe")
         if is_imaginary:
             title = f"✨ {title} (AI Recipe)"
 
-        # Save as subpage under the designated parent page
         notion.pages.create(
             parent={"page_id": notion_page_id},
             icon={"emoji": "🤖" if is_imaginary else "🍽️"},
@@ -151,16 +267,13 @@ If a category is empty return an empty array. No markdown, no extra text, just t
             children=children
         )
 
-        all_ingredients = []
-        if isinstance(ingredients, list):
-            all_ingredients = ingredients
-        else:
-            all_ingredients = ingredients.get("main", []) + ingredients.get("sauce", []) + ingredients.get("spicesAndHerbs", [])
+        all_ingredients = main_list + sauce_list + spice_list
+        flat_steps = [s if isinstance(s, str) else s.get("instruction", "") for s in steps]
 
-        return jsonify({'success': True, 'isImaginary': is_imaginary, 'recipe': {**recipe, 'ingredients': all_ingredients}})
+        return jsonify({'success': True, 'isImaginary': is_imaginary, 'source': source, 'recipe': {**recipe, 'ingredients': all_ingredients, 'steps': flat_steps}})
 
     except json.JSONDecodeError:
-        return jsonify({'error': 'Could not parse recipe from image. Try a clearer screenshot.'}), 500
+        return jsonify({'error': 'Could not parse recipe. Try a clearer screenshot or different video.'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
