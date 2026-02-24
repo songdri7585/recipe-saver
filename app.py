@@ -82,6 +82,9 @@ def extract_recipe():
                 image_parts.append({"mime_type": file.content_type, "data": base64.b64encode(image_data).decode('utf-8')})
             prompt = f"""Look at these images carefully.
 CASE 1: If the image contains an actual written recipe, extract it exactly.
+- If multiple images are provided and overlap in content, treat them as one continuous recipe — do NOT duplicate or average out quantities.
+- Always use the FIRST complete mention of each ingredient's quantity. Do not guess or adjust amounts.
+- Include ALL ingredients mentioned including toppings, garnishes, and serving suggestions.
 CASE 2: If the image only shows a food photo without a written recipe, create a realistic recipe for what you see.
 {RECIPE_PROMPT_JSON}"""
             parts = [prompt] + [{"inline_data": img} for img in image_parts]
@@ -100,33 +103,14 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         is_imaginary = recipe.get("isImaginary", False)
         ingredients = recipe.get("ingredients", {})
         steps = recipe.get("steps", [])
-        lang = recipe.get("lang", "en")
-
-        # Section headers based on language
-        if lang == "fr":
-            h_ingredients = "🥘 Ingrédients"
-            h_main = "Ingrédients principaux"
-            h_sauce = h_sauce
-            h_spices = "Épices & Herbes"
-            h_steps = "👨‍🍳 Étapes"
-            h_history = "📸 Historique de Seora"
-            history_note = "Déposez vos photos ici quand vous réalisez cette recette ! 🍽️"
-        elif lang == "ko":
-            h_ingredients = "🥘 재료"
-            h_main = "주재료"
-            h_sauce = "소스"
-            h_spices = "양념 & 허브"
-            h_steps = "👨‍🍳 조리 방법"
-            h_history = "📸 서라의 기록"
-            history_note = "이 레시피를 만들면 여기에 사진을 올려보세요! 🍽️"
-        else:
-            h_ingredients = h_ingredients
-            h_main = h_main
-            h_sauce = h_sauce
-            h_spices = h_spices
-            h_steps = h_steps
-            h_history = h_history
-            history_note = history_note
+        # Section headers always in English
+        h_ingredients = "🥘 Ingredients"
+        h_main = "Main Ingredients"
+        h_sauce = "Sauce"
+        h_spices = "Spices & Herbs"
+        h_steps = "👨‍🍳 Steps"
+        h_history = "📸 Seora's History"
+        history_note = "Drop your photos here when you make this recipe! 🍽️"
 
         if isinstance(ingredients, list):
             main_list, sauce_list, spice_list = ingredients, [], []
