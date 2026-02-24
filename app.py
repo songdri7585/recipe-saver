@@ -6,7 +6,6 @@ import google.generativeai as genai
 from notion_client import Client
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from youtube_transcript_api import YouTubeTranscriptApi
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -26,29 +25,31 @@ def extract_video_id(url):
     return None
 
 def get_transcript(video_id):
-    # Method 1: youtube-transcript-api direct
+    # Method 1: youtube-transcript-api
     try:
-        transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        text = " ".join([t['text'] for t in transcript_list])
-        if text.strip():
-            return text
-    except Exception:
+        from youtube_transcript_api import YouTubeTranscriptApi
+        try:
+            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            text = " ".join([t['text'] for t in transcript_list])
+            if text.strip():
+                return text
+        except Exception:
+            pass
+        try:
+            transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+            for transcript in transcripts:
+                try:
+                    text = " ".join([t['text'] for t in transcript.fetch()])
+                    if text.strip():
+                        return text
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    except ImportError:
         pass
 
-    # Method 2: try any available language
-    try:
-        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-        for transcript in transcripts:
-            try:
-                text = " ".join([t['text'] for t in transcript.fetch()])
-                if text.strip():
-                    return text
-            except Exception:
-                continue
-    except Exception:
-        pass
-
-    # Method 3: yt-dlp as last resort
+    # Method 2: yt-dlp
     try:
         import yt_dlp
         import tempfile
@@ -67,7 +68,6 @@ def get_transcript(video_id):
             url = f"https://www.youtube.com/watch?v={video_id}"
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-
             sub_files = glob.glob(os.path.join(tmpdir, '*.vtt'))
             if sub_files:
                 with open(sub_files[0], 'r', encoding='utf-8') as f:
@@ -105,8 +105,7 @@ RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these field
   "cookTime": "time or null",
   "servings": "servings or null"
 }
-
-Set "isImaginary" to true only if you are guessing from a photo with no recipe text.
+Set "isImaginary" to true only if guessing from a photo with no recipe text.
 Categorize ingredients: main = proteins, vegetables, grains, dairy. sauce = liquids, oils, vinegars, condiments. spicesAndHerbs = dried/fresh spices, herbs, seasonings, salt, pepper.
 For each step, list only the ingredients actually used in that step. If none, return empty array.
 No markdown, no extra text, just the JSON."""
@@ -120,187 +119,97 @@ def extract_recipe():
     try:
         model = genai.GenerativeModel('gemini-2.5-flash-lite')
         recipe = None
+        source = "image"
 
-        # --- YOUTUBE URL MODE ---
         youtube_url = request.form.get('youtube_url', '').strip()
         if youtube_url:
             video_id = extract_video_id(youtube_url)
             if not video_id:
-                return jsonify({'error': 'Invalid YouTube URL. Please use a YouTube Shorts or regular YouTube link.'}), 400
-
+                return jsonify({'error': 'Invalid YouTube URL.'}), 400
             transcript = get_transcript(video_id)
-
-            prompt = f"""Extract a recipe from this YouTube video transcript.
-            
-Transcript:
-{transcript}
-
-{RECIPE_PROMPT_JSON}"""
-
+            prompt = f"Extract a recipe from this YouTube video transcript.\n\nTranscript:\n{transcript}\n\n{RECIPE_PROMPT_JSON}"
             response = model.generate_content(prompt)
-            text = response.text.strip()
-            text = text.replace('```json', '').replace('```', '').strip()
+            text = response.text.strip().replace('```json', '').replace('```', '').strip()
             recipe = json.loads(text)
             recipe['isImaginary'] = False
             source = "youtube"
-
-        # --- IMAGE MODE ---
         else:
             if 'images' not in request.files:
-                return jsonify({'error': 'Please provide either a YouTube URL or upload images.'}), 400
-
+                return jsonify({'error': 'Please provide a YouTube URL or upload images.'}), 400
             files = request.files.getlist('images')
             if not files:
                 return jsonify({'error': 'No images provided'}), 400
-
             image_parts = []
             for file in files:
                 image_data = file.read()
-                image_parts.append({
-                    "mime_type": file.content_type,
-                    "data": base64.b64encode(image_data).decode('utf-8')
-                })
-
+                image_parts.append({"mime_type": file.content_type, "data": base64.b64encode(image_data).decode('utf-8')})
             prompt = f"""Look at these images carefully.
-
-CASE 1: If the image contains an actual written recipe (with ingredients and steps listed), extract it exactly.
-CASE 2: If the image only shows a food photo without a written recipe, create a realistic recipe for what you see in the photo.
-
+CASE 1: If the image contains an actual written recipe, extract it exactly.
+CASE 2: If the image only shows a food photo without a written recipe, create a realistic recipe for what you see.
 {RECIPE_PROMPT_JSON}"""
-
-            parts = [prompt]
-            for img in image_parts:
-                parts.append({"inline_data": img})
-
+            parts = [prompt] + [{"inline_data": img} for img in image_parts]
             response = model.generate_content(parts)
-            text = response.text.strip()
-            text = text.replace('```json', '').replace('```', '').strip()
+            text = response.text.strip().replace('```json', '').replace('```', '').strip()
             recipe = json.loads(text)
             source = "image"
 
-        # --- SAVE TO NOTION ---
         notion_token = os.environ.get("NOTION_TOKEN")
         notion_page_id = os.environ.get("NOTION_PAGE_ID")
-
         if not notion_token or not notion_page_id:
             return jsonify({'error': 'Notion not configured'}), 500
 
         notion = Client(auth=notion_token)
-
         is_imaginary = recipe.get("isImaginary", False)
         ingredients = recipe.get("ingredients", {})
         steps = recipe.get("steps", [])
 
         if isinstance(ingredients, list):
-            main_list = ingredients
-            sauce_list = []
-            spice_list = []
+            main_list, sauce_list, spice_list = ingredients, [], []
         else:
             main_list = ingredients.get("main", [])
             sauce_list = ingredients.get("sauce", [])
             spice_list = ingredients.get("spicesAndHerbs", [])
 
-        def ingredient_checkbox(text):
-            return {
-                "object": "block",
-                "type": "to_do",
-                "to_do": {
-                    "rich_text": [{"type": "text", "text": {"content": text}}],
-                    "checked": False
-                }
-            }
-
-        def step_blocks_builder(steps):
-            blocks = []
-            for step in steps:
-                if isinstance(step, str):
-                    instruction = step
-                    step_ingredients = []
-                else:
-                    instruction = step.get("instruction", "")
-                    step_ingredients = step.get("ingredients", [])
-
-                blocks.append({
-                    "object": "block",
-                    "type": "to_do",
-                    "to_do": {
-                        "rich_text": [{"type": "text", "text": {"content": instruction}}],
-                        "checked": False
-                    }
-                })
-
-                if step_ingredients:
-                    hint_text = "🧂 " + "  ·  ".join(step_ingredients)
-                    blocks.append({
-                        "object": "block",
-                        "type": "paragraph",
-                        "paragraph": {
-                            "rich_text": [{
-                                "type": "text",
-                                "text": {"content": hint_text},
-                                "annotations": {"color": "blue", "italic": True}
-                            }]
-                        }
-                    })
-            return blocks
+        def checkbox(text):
+            return {"object": "block", "type": "to_do", "to_do": {"rich_text": [{"type": "text", "text": {"content": text}}], "checked": False}}
 
         def heading3(text):
             return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"type": "text", "text": {"content": text}}]}}
 
+        def build_steps(steps):
+            blocks = []
+            for step in steps:
+                instruction = step if isinstance(step, str) else step.get("instruction", "")
+                step_ings = [] if isinstance(step, str) else step.get("ingredients", [])
+                blocks.append(checkbox(instruction))
+                if step_ings:
+                    blocks.append({"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"type": "text", "text": {"content": "🧂 " + "  ·  ".join(step_ings)}, "annotations": {"color": "blue", "italic": True}}]}})
+            return blocks
+
         children = []
-
         if is_imaginary:
-            children.append({
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Ingredients and steps are estimated. Use as inspiration only!"}}],
-                    "icon": {"emoji": "🤖"},
-                    "color": "yellow_background"
-                }
-            })
-
+            children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Use as inspiration only!"}}], "icon": {"emoji": "🤖"}, "color": "yellow_background"}})
         if source == "youtube":
-            children.append({
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "rich_text": [{"type": "text", "text": {"content": f"📺 Extracted from YouTube: {youtube_url}"}}],
-                    "icon": {"emoji": "📺"},
-                    "color": "red_background"
-                }
-            })
+            children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"📺 Extracted from YouTube: {youtube_url}"}}], "icon": {"emoji": "📺"}, "color": "red_background"}})
 
         children += [
-            {
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     👥 Servings: {recipe.get('servings') or 'N/A'}"}}],
-                    "icon": {"emoji": "🍳"},
-                    "color": "orange_background"
-                }
-            },
+            {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     👥 Servings: {recipe.get('servings') or 'N/A'}"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "🥘 Ingredients"}}]}},
         ]
-
         if main_list:
             children.append(heading3("Main Ingredients"))
-            children.extend([ingredient_checkbox(ing) for ing in main_list])
-
+            children.extend([checkbox(i) for i in main_list])
         if sauce_list:
             children.append(heading3("Sauce"))
-            children.extend([ingredient_checkbox(ing) for ing in sauce_list])
-
+            children.extend([checkbox(i) for i in sauce_list])
         if spice_list:
             children.append(heading3("Spices & Herbs"))
-            children.extend([ingredient_checkbox(ing) for ing in spice_list])
-
+            children.extend([checkbox(i) for i in spice_list])
         children += [
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "👨‍🍳 Steps"}}]}},
-            *step_blocks_builder(steps),
+            *build_steps(steps),
         ]
 
         title = recipe.get("title", "Untitled Recipe")
@@ -310,15 +219,12 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         notion.pages.create(
             parent={"page_id": notion_page_id},
             icon={"emoji": "🤖" if is_imaginary else "🍽️"},
-            properties={
-                "title": {"title": [{"text": {"content": title}}]}
-            },
+            properties={"title": {"title": [{"text": {"content": title}}]}},
             children=children
         )
 
         all_ingredients = main_list + sauce_list + spice_list
         flat_steps = [s if isinstance(s, str) else s.get("instruction", "") for s in steps]
-
         return jsonify({'success': True, 'isImaginary': is_imaginary, 'source': source, 'recipe': {**recipe, 'ingredients': all_ingredients, 'steps': flat_steps}})
 
     except json.JSONDecodeError:
