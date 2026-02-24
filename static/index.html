@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Recipe Saver</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <title>Seora's Recipe Saver ❤️</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍳</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -13,68 +14,66 @@
       --orange: #e8682a;
       --light: #f0ebe3;
       --border: #ddd5c8;
-      --red: #e03030;
+      --blue: #3b82f6;
     }
-    body { background: var(--cream); font-family: 'DM Sans', sans-serif; color: var(--brown); min-height: 100vh; }
-    header { background: var(--brown); color: var(--cream); padding: 24px 40px; display: flex; align-items: center; gap: 12px; }
-    header h1 { font-family: 'Playfair Display', serif; font-size: 28px; }
+    body { background: var(--cream); font-family: 'Pretendard', sans-serif; color: var(--brown); min-height: 100vh; }
+    header { background: var(--brown); color: var(--cream); padding: 24px 40px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+    header h1 { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 28px; }
+    header .subtitle { font-size: 13px; opacity: 0.6; margin-left: auto; }
     .container { max-width: 700px; margin: 48px auto; padding: 0 24px; }
 
-    /* Tabs */
-    .tabs { display: flex; gap: 0; margin-bottom: 24px; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); }
-    .tab { flex: 1; padding: 14px; text-align: center; cursor: pointer; font-size: 15px; font-weight: 500; background: white; transition: all 0.2s; border: none; font-family: 'DM Sans', sans-serif; color: #888; }
+    .tabs { display: flex; margin-bottom: 24px; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); }
+    .tab { flex: 1; padding: 14px; text-align: center; cursor: pointer; font-size: 15px; font-weight: 500; background: white; border: none; font-family: 'Pretendard', sans-serif; color: #888; transition: all 0.2s; }
     .tab.active { background: var(--brown); color: white; }
+    .tab:hover:not(.active) { background: var(--light); }
 
-    /* Upload card */
-    .upload-card { background: white; border: 2px dashed var(--border); border-radius: 16px; padding: 48px 32px; text-align: center; cursor: pointer; transition: all 0.2s; }
-    .upload-card:hover, .upload-card.dragover { border-color: var(--orange); background: #fff8f5; }
-    .upload-icon { font-size: 48px; margin-bottom: 16px; }
-    .upload-card h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
-    .upload-card p { color: #888; font-size: 14px; margin-bottom: 24px; }
-    #fileInput { display: none; }
+    .card { background: white; border-radius: 16px; padding: 40px 32px; text-align: center; }
+    .card.dashed { border: 2px dashed var(--border); cursor: pointer; transition: all 0.2s; }
+    .card.dashed:hover { border-color: var(--orange); background: #fff8f5; }
+    .card.solid { border: 2px solid var(--border); text-align: left; }
+    .upload-icon { font-size: 56px; margin-bottom: 16px; }
+    .card h2 { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 22px; margin-bottom: 8px; }
+    .card p { color: #888; font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
 
-    /* YouTube card */
-    .youtube-card { background: white; border: 2px solid var(--border); border-radius: 16px; padding: 40px 32px; display: none; }
-    .youtube-card h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
-    .youtube-card p { color: #888; font-size: 14px; margin-bottom: 24px; }
-    .url-input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 15px; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s; }
-    .url-input:focus { border-color: var(--red); }
-    .youtube-note { margin-top: 12px; font-size: 12px; color: #aaa; }
-
-    .btn { background: var(--orange); color: white; border: none; padding: 14px 32px; border-radius: 50px; font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+    .btn { background: var(--orange); color: white; border: none; padding: 14px 32px; border-radius: 50px; font-size: 16px; font-family: 'Pretendard', sans-serif; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
     .btn:hover { background: #d45a20; transform: translateY(-1px); }
     .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
-    .btn.youtube { background: var(--red); }
-    .btn.youtube:hover { background: #c02020; }
+    .btn.blue { background: var(--blue); }
+    .btn.blue:hover { background: #2563eb; }
+    .extract-btn { margin-top: 24px; width: 100%; justify-content: center; padding: 16px; font-size: 17px; border-radius: 12px; }
 
-    .previews { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; justify-content: center; }
+    .previews { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; justify-content: center; }
     .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border); }
 
-    .extract-btn { margin-top: 24px; width: 100%; justify-content: center; padding: 16px; font-size: 17px; border-radius: 12px; }
+    textarea { width: 100%; height: 220px; padding: 16px; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; font-family: 'Pretendard', sans-serif; resize: vertical; outline: none; line-height: 1.6; transition: border 0.2s; }
+    textarea:focus { border-color: var(--blue); }
+    textarea::placeholder { color: #bbb; }
 
     .status { margin-top: 20px; padding: 16px 20px; border-radius: 12px; font-size: 15px; display: none; }
     .status.loading { background: #fff8f0; border: 1px solid #ffd5b0; color: var(--brown); display: flex; align-items: center; gap: 10px; }
-    .status.success { background: #f0fff4; border: 1px solid #86efac; color: #166534; display: block; }
-    .status.error { background: #fff0f0; border: 1px solid #fca5a5; color: #991b1b; display: block; }
-    .status.imaginary { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; display: block; }
-
+    .status.success { background: #f0fff4; border: 1px solid #86efac; color: #166534; }
+    .status.error { background: #fff0f0; border: 1px solid #fca5a5; color: #991b1b; }
     .spinner { width: 20px; height: 20px; border: 2px solid #ffd5b0; border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .recipe-result { margin-top: 32px; background: white; border-radius: 16px; padding: 32px; border: 1px solid var(--border); display: none; }
     .recipe-result.show { display: block; }
-    .recipe-result h2 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 8px; }
-    .meta { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .recipe-result h2 { font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 26px; margin-bottom: 8px; }
+    .meta { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
     .meta-tag { background: var(--light); padding: 6px 14px; border-radius: 50px; font-size: 13px; color: #666; }
-    .section-title { font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--orange); margin-bottom: 12px; margin-top: 24px; }
+    .section-title { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--orange); margin-bottom: 10px; margin-top: 20px; }
     .ingredients-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .ingredients-list li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-    .ingredients-list li::before { content: '•'; color: var(--orange); font-size: 18px; flex-shrink: 0; }
-    .steps-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
-    .steps-list li { display: flex; gap: 12px; font-size: 14px; line-height: 1.6; }
+    .ingredients-list li::before { content: '☐'; color: var(--orange); font-size: 16px; flex-shrink: 0; }
+    .steps-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .steps-list li { display: flex; gap: 12px; font-size: 14px; line-height: 1.6; align-items: flex-start; }
     .step-num { background: var(--orange); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
     .notion-link { margin-top: 20px; text-align: center; font-size: 14px; color: #888; }
     .notion-link strong { color: #166534; }
+    .source-link-wrap { margin-top: 16px; }
+    .source-link-wrap label { font-size: 13px; color: #888; display: block; margin-bottom: 6px; }
+    .source-input { width: 100%; padding: 12px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 14px; font-family: "DM Sans", sans-serif; outline: none; transition: border 0.2s; }
+    .source-input:focus { border-color: var(--orange); }
     @media (max-width: 500px) { .ingredients-list { grid-template-columns: 1fr; } header { padding: 16px 20px; } .container { margin: 24px auto; } }
   </style>
 </head>
@@ -82,52 +81,58 @@
 
 <header>
   <span>🍳</span>
-  <h1>Recipe Saver</h1>
+  <h1>Seora's Recipe Saver ❤️</h1>
+  
 </header>
 
 <div class="container">
 
-  <!-- Tabs -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('image')">📸 Upload Screenshot</button>
-    <button class="tab" onclick="switchTab('youtube')">📺 YouTube Shorts</button>
+    <button class="tab active" onclick="switchTab('image', this)">📸 Upload Screenshot</button>
+    <button class="tab" onclick="switchTab('text', this)">📝 Paste Text</button>
   </div>
 
-  <!-- Image Upload -->
+  <!-- Image Panel -->
   <div id="imagePanel">
-    <div class="upload-card" id="dropZone">
+    <div class="card dashed" id="dropZone"
+      ondragover="event.preventDefault(); this.style.borderColor='#e8682a'"
+      ondragleave="this.style.borderColor=''"
+      ondrop="handleDrop(event)">
       <div class="upload-icon">📸</div>
       <h2>Upload Recipe Screenshots</h2>
-      <p>Take screenshots from Instagram Reels or any recipe source and upload them here</p>
+      <p>Take screenshots from Instagram Reels or any recipe source.<br>Multiple images supported!</p>
       <button class="btn" onclick="document.getElementById('fileInput').click()">Choose Images</button>
-      <input type="file" id="fileInput" accept="image/*" multiple />
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleFiles(this.files)"/>
       <div class="previews" id="previews"></div>
     </div>
-    <button class="btn extract-btn" id="extractBtnImage" disabled onclick="extractRecipe('image')">
-      ✨ Extract & Save to Notion
-    </button>
+    <div class="source-link-wrap">
+      <label>🔗 Source link (optional) — paste Instagram, YouTube or any URL</label>
+      <input type="text" class="source-input" id="sourceLinkImage" placeholder="https://www.instagram.com/reel/..."/>
+    </div>
+    <button class="btn extract-btn" id="extractBtnImage" disabled onclick="extractRecipe('image')">✨ Extract & Save to Notion</button>
   </div>
 
-  <!-- YouTube URL -->
-  <div id="youtubePanel" style="display:none;">
-    <div class="youtube-card" style="display:block;">
-      <div class="upload-icon">📺</div>
-      <h2>Paste YouTube Shorts Link</h2>
-      <p>Works with YouTube Shorts and regular YouTube videos that have captions</p>
-      <input type="text" class="url-input" id="youtubeUrl" placeholder="https://youtube.com/shorts/..." oninput="checkYoutubeUrl()" />
-      <p class="youtube-note">⚠️ Requires the video to have captions/subtitles enabled</p>
+  <!-- Text Panel -->
+  <div id="textPanel" style="display:none;">
+    <div class="card solid">
+      <div style="font-size:40px;margin-bottom:12px;">📝</div>
+      <h2 style="text-align:center;">Paste Recipe Text</h2>
+      <p style="text-align:center;">Copy and paste any recipe text — from a website, blog, message, or anywhere else</p>
+      <textarea id="recipeTextInput" placeholder="Paste your recipe here...&#10;&#10;Example:&#10;Salmon Bowl&#10;Ingredients: 1 salmon fillet, 125g lentils...&#10;Steps: 1. Roast salmon at 200°C..." oninput="checkText()"></textarea>
     </div>
-    <button class="btn extract-btn youtube" id="extractBtnYoutube" disabled onclick="extractRecipe('youtube')">
-      📺 Extract & Save to Notion
-    </button>
+    <div class="source-link-wrap">
+      <label>🔗 Source link (optional) — paste Instagram, YouTube or any URL</label>
+      <input type="text" class="source-input" id="sourceLinkText" placeholder="https://www.instagram.com/reel/..."/>
+    </div>
+    <button class="btn extract-btn blue" id="extractBtnText" disabled onclick="extractRecipe('text')">📝 Extract & Save to Notion</button>
   </div>
 
   <div class="status loading" id="statusLoading">
     <div class="spinner"></div>
     <span id="loadingText">Reading your recipe with AI... this takes about 10 seconds</span>
   </div>
-  <div class="status success" id="statusSuccess"></div>
-  <div class="status error" id="statusError"></div>
+  <div class="status success" id="statusSuccess" style="display:none;"></div>
+  <div class="status error" id="statusError" style="display:none;"></div>
 
   <div class="recipe-result" id="recipeResult">
     <h2 id="recipeTitle"></h2>
@@ -138,20 +143,20 @@
     <div class="section-title">Ingredients</div>
     <ul class="ingredients-list" id="ingredientsList"></ul>
     <div class="section-title">Steps</div>
-    <ol class="steps-list" id="stepsList"></ol>
+    <ul class="steps-list" id="stepsList"></ul>
     <div class="notion-link">✅ <strong>Saved to Notion!</strong> Check your Recipe page.</div>
   </div>
+
 </div>
 
 <script>
   let selectedFiles = [];
-  let currentTab = 'image';
 
-  function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && tab === 'image') || (i === 1 && tab === 'youtube')));
+  function switchTab(tab, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
     document.getElementById('imagePanel').style.display = tab === 'image' ? 'block' : 'none';
-    document.getElementById('youtubePanel').style.display = tab === 'youtube' ? 'block' : 'none';
+    document.getElementById('textPanel').style.display = tab === 'text' ? 'block' : 'none';
     resetStatus();
   }
 
@@ -164,11 +169,10 @@
 
   const fileInput = document.getElementById('fileInput');
   const dropZone = document.getElementById('dropZone');
-
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = '#e8682a'; });
+  dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '');
+  dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.borderColor = ''; handleFiles(e.dataTransfer.files); });
   fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
 
   function handleFiles(files) {
     selectedFiles = Array.from(files);
@@ -183,22 +187,31 @@
     document.getElementById('extractBtnImage').disabled = selectedFiles.length === 0;
   }
 
-  function checkYoutubeUrl() {
-    const url = document.getElementById('youtubeUrl').value.trim();
-    document.getElementById('extractBtnYoutube').disabled = !url.includes('youtube.com') && !url.includes('youtu.be');
+  function handleDrop(e) {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+  }
+
+  function checkText() {
+    const val = document.getElementById('recipeTextInput').value.trim();
+    document.getElementById('extractBtnText').disabled = val.length < 10;
   }
 
   async function extractRecipe(mode) {
     resetStatus();
     document.getElementById('statusLoading').style.display = 'flex';
-
     const formData = new FormData();
 
-    if (mode === 'youtube') {
-      const url = document.getElementById('youtubeUrl').value.trim();
-      formData.append('youtube_url', url);
-      document.getElementById('loadingText').textContent = 'Fetching captions from YouTube... this may take 15 seconds';
-      document.getElementById('extractBtnYoutube').disabled = true;
+    const sourceLink = mode === 'text'
+      ? document.getElementById('sourceLinkText').value.trim()
+      : document.getElementById('sourceLinkImage').value.trim();
+    if (sourceLink) formData.append('source_link', sourceLink);
+
+    if (mode === 'text') {
+      const text = document.getElementById('recipeTextInput').value.trim();
+      formData.append('recipe_text', text);
+      document.getElementById('loadingText').textContent = 'Structuring your recipe with AI...';
+      document.getElementById('extractBtnText').disabled = true;
     } else {
       selectedFiles.forEach(file => formData.append('images', file));
       document.getElementById('loadingText').textContent = 'Reading your recipe with AI... this takes about 10 seconds';
@@ -217,8 +230,8 @@
         const successEl = document.getElementById('statusSuccess');
         if (data.isImaginary) {
           successEl.textContent = '🤖 No written recipe found — AI imagined a recipe from your photo and saved it to Notion!';
-        } else if (data.source === 'youtube') {
-          successEl.textContent = '📺 Recipe extracted from YouTube captions and saved to Notion!';
+        } else if (data.source === 'text') {
+          successEl.textContent = '📝 Recipe extracted from your text and saved to Notion!';
         } else {
           successEl.textContent = '✅ Recipe saved to your Notion page!';
         }
@@ -232,14 +245,13 @@
     }
 
     document.getElementById('extractBtnImage').disabled = false;
-    document.getElementById('extractBtnYoutube').disabled = false;
+    document.getElementById('extractBtnText').disabled = false;
   }
 
   function showRecipe(recipe) {
     document.getElementById('recipeTitle').textContent = recipe.title || 'Untitled Recipe';
     document.getElementById('cookTime').textContent = '⏱ ' + (recipe.cookTime || 'N/A');
     document.getElementById('servings').textContent = '👥 ' + (recipe.servings || 'N/A');
-
     const ingList = document.getElementById('ingredientsList');
     ingList.innerHTML = '';
     (recipe.ingredients || []).forEach(ing => {
@@ -247,7 +259,6 @@
       li.textContent = ing;
       ingList.appendChild(li);
     });
-
     const stepsList = document.getElementById('stepsList');
     stepsList.innerHTML = '';
     (recipe.steps || []).forEach((step, i) => {
@@ -255,7 +266,6 @@
       li.innerHTML = `<span class="step-num">${i+1}</span><span>${step}</span>`;
       stepsList.appendChild(li);
     });
-
     document.getElementById('recipeResult').classList.add('show');
   }
 </script>
