@@ -12,81 +12,6 @@ CORS(app)
 
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
-def extract_video_id(url):
-    patterns = [
-        r'youtube\.com/shorts/([a-zA-Z0-9_-]+)',
-        r'youtu\.be/([a-zA-Z0-9_-]+)',
-        r'youtube\.com/watch\?v=([a-zA-Z0-9_-]+)',
-    ]
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            return match.group(1)
-    return None
-
-def get_transcript(video_id):
-    # Method 1: youtube-transcript-api
-    try:
-        from youtube_transcript_api import YouTubeTranscriptApi
-        try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-            text = " ".join([t['text'] for t in transcript_list])
-            if text.strip():
-                return text
-        except Exception:
-            pass
-        try:
-            transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-            for transcript in transcripts:
-                try:
-                    text = " ".join([t['text'] for t in transcript.fetch()])
-                    if text.strip():
-                        return text
-                except Exception:
-                    continue
-        except Exception:
-            pass
-    except ImportError:
-        pass
-
-    # Method 2: yt-dlp
-    try:
-        import yt_dlp
-        import tempfile
-        import glob
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            ydl_opts = {
-                'skip_download': True,
-                'writeautomaticsub': True,
-                'writesubtitles': True,
-                'subtitleslangs': ['en', 'ko', 'fr', 'es', 'ja', 'zh'],
-                'subtitlesformat': 'vtt',
-                'outtmpl': os.path.join(tmpdir, 'subs'),
-                'quiet': True,
-            }
-            url = f"https://www.youtube.com/watch?v={video_id}"
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            sub_files = glob.glob(os.path.join(tmpdir, '*.vtt'))
-            if sub_files:
-                with open(sub_files[0], 'r', encoding='utf-8') as f:
-                    content_vtt = f.read()
-                lines = []
-                for line in content_vtt.split('\n'):
-                    line = line.strip()
-                    if line and not line.startswith('WEBVTT') and '-->' not in line and not line.isdigit():
-                        line = re.sub(r'<[^>]+>', '', line)
-                        if line:
-                            lines.append(line)
-                text = ' '.join(lines)
-                if text.strip():
-                    return text
-    except Exception:
-        pass
-
-    raise Exception("No captions available for this video. Try uploading a screenshot instead.")
-
 RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these fields:
 {
   "title": "recipe name",
@@ -121,21 +46,20 @@ def extract_recipe():
         recipe = None
         source = "image"
 
-        youtube_url = request.form.get('youtube_url', '').strip()
-        if youtube_url:
-            video_id = extract_video_id(youtube_url)
-            if not video_id:
-                return jsonify({'error': 'Invalid YouTube URL.'}), 400
-            transcript = get_transcript(video_id)
-            prompt = f"Extract a recipe from this YouTube video transcript.\n\nTranscript:\n{transcript}\n\n{RECIPE_PROMPT_JSON}"
+        # --- TEXT MODE ---
+        recipe_text = request.form.get('recipe_text', '').strip()
+        if recipe_text:
+            prompt = f"Extract and structure a recipe from this text.\n\nText:\n{recipe_text}\n\n{RECIPE_PROMPT_JSON}"
             response = model.generate_content(prompt)
             text = response.text.strip().replace('```json', '').replace('```', '').strip()
             recipe = json.loads(text)
             recipe['isImaginary'] = False
-            source = "youtube"
+            source = "text"
+
+        # --- IMAGE MODE ---
         else:
             if 'images' not in request.files:
-                return jsonify({'error': 'Please provide a YouTube URL or upload images.'}), 400
+                return jsonify({'error': 'Please provide recipe text or upload images.'}), 400
             files = request.files.getlist('images')
             if not files:
                 return jsonify({'error': 'No images provided'}), 400
@@ -153,6 +77,7 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             recipe = json.loads(text)
             source = "image"
 
+        # --- SAVE TO NOTION ---
         notion_token = os.environ.get("NOTION_TOKEN")
         notion_page_id = os.environ.get("NOTION_PAGE_ID")
         if not notion_token or not notion_page_id:
@@ -189,8 +114,8 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         children = []
         if is_imaginary:
             children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Use as inspiration only!"}}], "icon": {"emoji": "🤖"}, "color": "yellow_background"}})
-        if source == "youtube":
-            children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"📺 Extracted from YouTube: {youtube_url}"}}], "icon": {"emoji": "📺"}, "color": "red_background"}})
+        if source == "text":
+            children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "📝 Extracted from pasted recipe text."}}], "icon": {"emoji": "📝"}, "color": "blue_background"}})
 
         children += [
             {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     👥 Servings: {recipe.get('servings') or 'N/A'}"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
@@ -212,6 +137,21 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             *build_steps(steps),
         ]
 
+        # Add source link at bottom if provided
+        source_link = request.form.get('source_link', '').strip()
+        if source_link:
+            children.append({"object": "block", "type": "divider", "divider": {}})
+            children.append({
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "🔗 Source: "}, "annotations": {"bold": True}},
+                        {"type": "text", "text": {"content": source_link, "link": {"url": source_link}}, "annotations": {"color": "blue"}}
+                    ]
+                }
+            })
+
         title = recipe.get("title", "Untitled Recipe")
         if is_imaginary:
             title = f"✨ {title} (AI Recipe)"
@@ -228,7 +168,7 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         return jsonify({'success': True, 'isImaginary': is_imaginary, 'source': source, 'recipe': {**recipe, 'ingredients': all_ingredients, 'steps': flat_steps}})
 
     except json.JSONDecodeError:
-        return jsonify({'error': 'Could not parse recipe. Try a clearer screenshot or different video.'}), 500
+        return jsonify({'error': 'Could not parse recipe. Try again or rephrase the text.'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
