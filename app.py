@@ -28,13 +28,20 @@ RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these field
     }
   ],
   "cookTime": "time or null",
-  "servings": "servings or null"
+  "servings": "servings or null",
+  "lang": "en"
 }
+Set "lang" to "fr" if the recipe is in French, "ko" if Korean, "en" for everything else.
 
 IMPORTANT CONVERSION RULES:
 1. TEMPERATURE: Always convert Fahrenheit to Celsius. Write as "200°C" only. Never use Fahrenheit in output.
 2. VOLUME TO WEIGHT: Convert ALL volume and imperial measurements to grams. This includes: cup, tbsp, tsp, fl oz, oz, lb, pinch, handful, bunch, pack, and any other non-metric unit. For oz specifically: 1 oz = 28.35g, always convert. For lb: 1 lb = 454g, always convert. Use the specific ingredient's density for accuracy. Format ALWAYS as: "original measure ingredient name (Xg)". Examples: "1 cup flour (120g)", "2 tbsp olive oil (27g)", "1/4 cup fresh dill (10g)", "2 (8-oz.) salmon fillets (454g)", "1/2 cup sliced almonds (55g)". NEVER skip a conversion if the ingredient has a measurable weight. Only skip if truly unmeasurable (e.g. "1 bay leaf" is acceptable to skip).
 3. Apply these conversions to both ingredients AND step instructions.
+
+LANGUAGE RULES:
+- If the recipe is in French or Korean, keep EVERYTHING in that original language (title, ingredients, steps, all text). Do not translate anything.
+- If the recipe is in any other language, translate everything to English.
+- The section headers (like ingredients, steps) should also match the recipe language. For French use: "Ingrédients principaux", h_sauce, "Épices & Herbes", "Étapes". For Korean use: "주재료", "소스", "양념 & 허브", "조리 방법".
 
 Set "isImaginary" to true only if guessing from a photo with no recipe text.
 Categorize ingredients: main = proteins, vegetables, grains, dairy. sauce = liquids, oils, vinegars, condiments. spicesAndHerbs = dried/fresh spices, herbs, seasonings, salt, pepper.
@@ -93,6 +100,33 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         is_imaginary = recipe.get("isImaginary", False)
         ingredients = recipe.get("ingredients", {})
         steps = recipe.get("steps", [])
+        lang = recipe.get("lang", "en")
+
+        # Section headers based on language
+        if lang == "fr":
+            h_ingredients = "🥘 Ingrédients"
+            h_main = "Ingrédients principaux"
+            h_sauce = h_sauce
+            h_spices = "Épices & Herbes"
+            h_steps = "👨‍🍳 Étapes"
+            h_history = "📸 Historique de Seora"
+            history_note = "Déposez vos photos ici quand vous réalisez cette recette ! 🍽️"
+        elif lang == "ko":
+            h_ingredients = "🥘 재료"
+            h_main = "주재료"
+            h_sauce = "소스"
+            h_spices = "양념 & 허브"
+            h_steps = "👨‍🍳 조리 방법"
+            h_history = "📸 서라의 기록"
+            history_note = "이 레시피를 만들면 여기에 사진을 올려보세요! 🍽️"
+        else:
+            h_ingredients = h_ingredients
+            h_main = h_main
+            h_sauce = h_sauce
+            h_spices = h_spices
+            h_steps = h_steps
+            h_history = h_history
+            history_note = history_note
 
         if isinstance(ingredients, list):
             main_list, sauce_list, spice_list = ingredients, [], []
@@ -149,20 +183,20 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
                 }
             },
             {"object": "block", "type": "divider", "divider": {}},
-            {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "🥘 Ingredients"}}]}},
+            {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": h_ingredients}}]}},
         ]
         if main_list:
-            children.append(heading3("Main Ingredients"))
+            children.append(heading3(h_main))
             children.extend([checkbox(i, rich=True) for i in main_list])
         if sauce_list:
-            children.append(heading3("Sauce"))
+            children.append(heading3(h_sauce))
             children.extend([checkbox(i, rich=True) for i in sauce_list])
         if spice_list:
-            children.append(heading3("Spices & Herbs"))
+            children.append(heading3(h_spices))
             children.extend([checkbox(i, rich=True) for i in spice_list])
         children += [
             {"object": "block", "type": "divider", "divider": {}},
-            {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "👨‍🍳 Steps"}}]}},
+            {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": h_steps}}]}},
             *build_steps(steps),
         ]
 
@@ -173,14 +207,14 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
                 "object": "block",
                 "type": "heading_2",
                 "heading_2": {
-                    "rich_text": [{"type": "text", "text": {"content": "📸 Seora's History"}, "annotations": {"color": "pink"}}]
+                    "rich_text": [{"type": "text", "text": {"content": h_history}, "annotations": {"color": "pink"}}]
                 }
             },
             {
                 "object": "block",
                 "type": "paragraph",
                 "paragraph": {
-                    "rich_text": [{"type": "text", "text": {"content": "Drop your photos here when you make this recipe! 🍽️"}, "annotations": {"color": "gray", "italic": True}}]
+                    "rich_text": [{"type": "text", "text": {"content": history_note}, "annotations": {"color": "gray", "italic": True}}]
                 }
             },
         ]
