@@ -9,7 +9,6 @@ from flask_cors import CORS
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
-# Configure Gemini
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 @app.route('/')
@@ -26,7 +25,6 @@ def extract_recipe():
         if not files:
             return jsonify({'error': 'No images provided'}), 400
 
-        # 1. Prepare images for Gemini
         image_parts = []
         for file in files:
             image_data = file.read()
@@ -35,18 +33,30 @@ def extract_recipe():
                 "data": base64.b64encode(image_data).decode('utf-8')
             })
 
-        # 2. Call Gemini
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        prompt = """Extract the recipe from these images. Return ONLY a valid JSON object with exactly these fields:
+        model = genai.GenerativeModel('gemini-2.5-flash-lite')
+
+        prompt = """Look at these images carefully.
+
+CASE 1: If the image contains an actual written recipe (with ingredients and steps listed), extract it exactly.
+CASE 2: If the image only shows a food photo without a written recipe, create a realistic recipe for what you see in the photo.
+
+Return ONLY a valid JSON object with exactly these fields:
 {
   "title": "recipe name",
-  "ingredients": ["ingredient 1", "ingredient 2"],
+  "isImaginary": false,
+  "ingredients": {
+    "main": ["ingredient 1", "ingredient 2"],
+    "sauce": ["sauce ingredient 1"],
+    "spicesAndHerbs": ["spice 1", "herb 1"]
+  },
   "steps": ["step 1", "step 2"],
   "cookTime": "time or null",
   "servings": "servings or null"
 }
-No markdown, no extra text, just the JSON."""
+
+Set "isImaginary" to true if you are guessing/creating the recipe from a photo, false if you extracted it from written text.
+Categorize ingredients: main = proteins, vegetables, grains, dairy. sauce = liquids, oils, vinegars, condiments. spicesAndHerbs = dried/fresh spices, herbs, seasonings, salt, pepper.
+If a category is empty return an empty array. No markdown, no extra text, just the JSON."""
 
         parts = [prompt]
         for img in image_parts:
@@ -57,39 +67,99 @@ No markdown, no extra text, just the JSON."""
         text = text.replace('```json', '').replace('```', '').strip()
         recipe = json.loads(text)
 
-        # 3. Save to Notion
         notion_token = os.environ.get("NOTION_TOKEN")
-        notion_db_id = os.environ.get("NOTION_DATABASE_ID")
+        notion_page_id = os.environ.get("NOTION_PAGE_ID")
 
-        if not notion_token or not notion_db_id:
+        if not notion_token or not notion_page_id:
             return jsonify({'error': 'Notion not configured'}), 500
 
         notion = Client(auth=notion_token)
-        
-        notion.pages.create(
-            parent={"database_id": notion_db_id},
-            properties={
-                "Name": {
-                    "title": [{"text": {"content": recipe.get("title", "Untitled Recipe")}}]
-                },
-                "Ingredients": {
-                    "rich_text": [{"text": {"content": "\n".join(recipe.get("ingredients", []))}}]
-                },
-                "Steps": {
-                    "rich_text": [{"text": {"content": "\n".join(recipe.get("steps", []))}}]
-                },
-                "Cook Time": {
-                    "rich_text": [{"text": {"content": recipe.get("cookTime") or "N/A"}}]
-                },
-                "Servings": {
-                    "rich_text": [{"text": {"content": recipe.get("servings") or "N/A"}}]
+
+        is_imaginary = recipe.get("isImaginary", False)
+        ingredients = recipe.get("ingredients", {})
+
+        if isinstance(ingredients, list):
+            main_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients]
+            sauce_blocks = []
+            spice_blocks = []
+        else:
+            main_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients.get("main", [])]
+            sauce_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients.get("sauce", [])]
+            spice_blocks = [{"object": "block", "type": "bulleted_list_item", "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": ing}}]}} for ing in ingredients.get("spicesAndHerbs", [])]
+
+        step_blocks = [{"object": "block", "type": "numbered_list_item", "numbered_list_item": {"rich_text": [{"type": "text", "text": {"content": step}}]}} for step in recipe.get("steps", [])]
+
+        def heading3(text):
+            return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"type": "text", "text": {"content": text}}]}}
+
+        children = []
+
+        if is_imaginary:
+            children.append({
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Ingredients and steps are estimated and may not reflect the actual dish. Use as inspiration only!"}}],
+                    "icon": {"emoji": "🤖"},
+                    "color": "yellow_background"
                 }
-            }
+            })
+
+        children += [
+            {
+                "object": "block",
+                "type": "callout",
+                "callout": {
+                    "rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     👥 Servings: {recipe.get('servings') or 'N/A'}"}}],
+                    "icon": {"emoji": "🍳"},
+                    "color": "orange_background"
+                }
+            },
+            {"object": "block", "type": "divider", "divider": {}},
+            {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "🥘 Ingredients"}}]}},
+        ]
+
+        if main_blocks:
+            children.append(heading3("Main Ingredients"))
+            children.extend(main_blocks)
+
+        if sauce_blocks:
+            children.append(heading3("Sauce"))
+            children.extend(sauce_blocks)
+
+        if spice_blocks:
+            children.append(heading3("Spices & Herbs"))
+            children.extend(spice_blocks)
+
+        children += [
+            {"object": "block", "type": "divider", "divider": {}},
+            {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "👨‍🍳 Steps"}}]}},
+            *step_blocks,
+        ]
+
+        title = recipe.get("title", "Untitled Recipe")
+        if is_imaginary:
+            title = f"✨ {title} (AI Recipe)"
+
+        # Save as subpage under the designated parent page
+        notion.pages.create(
+            parent={"page_id": notion_page_id},
+            icon={"emoji": "🤖" if is_imaginary else "🍽️"},
+            properties={
+                "title": {"title": [{"text": {"content": title}}]}
+            },
+            children=children
         )
 
-        return jsonify({'success': True, 'recipe': recipe})
+        all_ingredients = []
+        if isinstance(ingredients, list):
+            all_ingredients = ingredients
+        else:
+            all_ingredients = ingredients.get("main", []) + ingredients.get("sauce", []) + ingredients.get("spicesAndHerbs", [])
 
-    except json.JSONDecodeError as e:
+        return jsonify({'success': True, 'isImaginary': is_imaginary, 'recipe': {**recipe, 'ingredients': all_ingredients}})
+
+    except json.JSONDecodeError:
         return jsonify({'error': 'Could not parse recipe from image. Try a clearer screenshot.'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
