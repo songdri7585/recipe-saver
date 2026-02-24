@@ -33,7 +33,7 @@ RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these field
 
 IMPORTANT CONVERSION RULES:
 1. TEMPERATURE: Always convert Fahrenheit to Celsius. Write as "200°C" only. Never use Fahrenheit in output.
-2. VOLUME TO WEIGHT: Convert cup/tbsp/tsp/pinch/handful and similar vague units to grams based on the specific ingredient density. Format as: "1 cup flour (120g)" or "2 tbsp olive oil (27g)". Keep the original measure AND add grams in parentheses. If you truly cannot estimate the weight, keep original unit as-is.
+2. VOLUME TO WEIGHT: Convert ALL volume and imperial measurements to grams. This includes: cup, tbsp, tsp, fl oz, oz, lb, pinch, handful, bunch, pack, and any other non-metric unit. For oz specifically: 1 oz = 28.35g, always convert. For lb: 1 lb = 454g, always convert. Use the specific ingredient's density for accuracy. Format ALWAYS as: "original measure ingredient name (Xg)". Examples: "1 cup flour (120g)", "2 tbsp olive oil (27g)", "1/4 cup fresh dill (10g)", "2 (8-oz.) salmon fillets (454g)", "1/2 cup sliced almonds (55g)". NEVER skip a conversion if the ingredient has a measurable weight. Only skip if truly unmeasurable (e.g. "1 bay leaf" is acceptable to skip).
 3. Apply these conversions to both ingredients AND step instructions.
 
 Set "isImaginary" to true only if guessing from a photo with no recipe text.
@@ -138,6 +138,16 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
         children += [
             {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     👥 Servings: {recipe.get('servings') or 'N/A'}"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [
+                        {"type": "text", "text": {"content": "⭐ My Rating:   "}, "annotations": {"bold": True}},
+                        {"type": "text", "text": {"content": "☆ ☆ ☆ ☆ ☆"}, "annotations": {"color": "yellow", "bold": True}}
+                    ]
+                }
+            },
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "🥘 Ingredients"}}]}},
         ]
@@ -154,6 +164,25 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "👨‍🍳 Steps"}}]}},
             *build_steps(steps),
+        ]
+
+        # Add Seora's History section
+        children += [
+            {"object": "block", "type": "divider", "divider": {}},
+            {
+                "object": "block",
+                "type": "heading_2",
+                "heading_2": {
+                    "rich_text": [{"type": "text", "text": {"content": "📸 Seora's History"}, "annotations": {"color": "pink"}}]
+                }
+            },
+            {
+                "object": "block",
+                "type": "paragraph",
+                "paragraph": {
+                    "rich_text": [{"type": "text", "text": {"content": "Drop your photos here when you make this recipe! 🍽️"}, "annotations": {"color": "gray", "italic": True}}]
+                }
+            },
         ]
 
         # Add source link at bottom if provided
