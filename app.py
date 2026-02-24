@@ -26,17 +26,66 @@ def extract_video_id(url):
     return None
 
 def get_transcript(video_id):
+    # Method 1: youtube-transcript-api direct
     try:
         transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
-        return " ".join([t['text'] for t in transcript_list])
+        text = " ".join([t['text'] for t in transcript_list])
+        if text.strip():
+            return text
     except Exception:
-        try:
-            # Try any available language
-            transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
-            transcript = transcripts.find_generated_transcript(['en', 'ko', 'fr', 'es', 'ja'])
-            return " ".join([t['text'] for t in transcript.fetch()])
-        except Exception as e:
-            raise Exception(f"No captions available for this video. Try uploading a screenshot instead.")
+        pass
+
+    # Method 2: try any available language
+    try:
+        transcripts = YouTubeTranscriptApi.list_transcripts(video_id)
+        for transcript in transcripts:
+            try:
+                text = " ".join([t['text'] for t in transcript.fetch()])
+                if text.strip():
+                    return text
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # Method 3: yt-dlp as last resort
+    try:
+        import yt_dlp
+        import tempfile
+        import glob
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ydl_opts = {
+                'skip_download': True,
+                'writeautomaticsub': True,
+                'writesubtitles': True,
+                'subtitleslangs': ['en', 'ko', 'fr', 'es', 'ja', 'zh'],
+                'subtitlesformat': 'vtt',
+                'outtmpl': os.path.join(tmpdir, 'subs'),
+                'quiet': True,
+            }
+            url = f"https://www.youtube.com/watch?v={video_id}"
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+
+            sub_files = glob.glob(os.path.join(tmpdir, '*.vtt'))
+            if sub_files:
+                with open(sub_files[0], 'r', encoding='utf-8') as f:
+                    content_vtt = f.read()
+                lines = []
+                for line in content_vtt.split('\n'):
+                    line = line.strip()
+                    if line and not line.startswith('WEBVTT') and '-->' not in line and not line.isdigit():
+                        line = re.sub(r'<[^>]+>', '', line)
+                        if line:
+                            lines.append(line)
+                text = ' '.join(lines)
+                if text.strip():
+                    return text
+    except Exception:
+        pass
+
+    raise Exception("No captions available for this video. Try uploading a screenshot instead.")
 
 RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these fields:
 {
