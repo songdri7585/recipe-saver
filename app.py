@@ -30,6 +30,12 @@ RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these field
   "cookTime": "time or null",
   "servings": "servings or null"
 }
+
+IMPORTANT CONVERSION RULES:
+1. TEMPERATURE: Always convert Fahrenheit to Celsius. Write as "200°C" only. Never use Fahrenheit in output.
+2. VOLUME TO WEIGHT: Convert cup/tbsp/tsp/pinch/handful and similar vague units to grams based on the specific ingredient density. Format as: "1 cup flour (120g)" or "2 tbsp olive oil (27g)". Keep the original measure AND add grams in parentheses. If you truly cannot estimate the weight, keep original unit as-is.
+3. Apply these conversions to both ingredients AND step instructions.
+
 Set "isImaginary" to true only if guessing from a photo with no recipe text.
 Categorize ingredients: main = proteins, vegetables, grains, dairy. sauce = liquids, oils, vinegars, condiments. spicesAndHerbs = dried/fresh spices, herbs, seasonings, salt, pepper.
 For each step, list only the ingredients actually used in that step. If none, return empty array.
@@ -95,8 +101,21 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             sauce_list = ingredients.get("sauce", [])
             spice_list = ingredients.get("spicesAndHerbs", [])
 
-        def checkbox(text):
-            return {"object": "block", "type": "to_do", "to_do": {"rich_text": [{"type": "text", "text": {"content": text}}], "checked": False}}
+        def parse_ingredient_rich_text(text):
+            # Split "1 cup flour (120g)" into main text and grey parenthetical
+            match = re.search(r'(.*?)(\s*\([^)]+\))\s*$', text)
+            if match:
+                main = match.group(1).strip()
+                note = match.group(2).strip()
+                return [
+                    {"type": "text", "text": {"content": main + " "}},
+                    {"type": "text", "text": {"content": note}, "annotations": {"color": "gray", "italic": True}}
+                ]
+            return [{"type": "text", "text": {"content": text}}]
+
+        def checkbox(text, rich=False):
+            rich_text = parse_ingredient_rich_text(text) if rich else [{"type": "text", "text": {"content": text}}]
+            return {"object": "block", "type": "to_do", "to_do": {"rich_text": rich_text, "checked": False}}
 
         def heading3(text):
             return {"object": "block", "type": "heading_3", "heading_3": {"rich_text": [{"type": "text", "text": {"content": text}}]}}
@@ -124,13 +143,13 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         ]
         if main_list:
             children.append(heading3("Main Ingredients"))
-            children.extend([checkbox(i) for i in main_list])
+            children.extend([checkbox(i, rich=True) for i in main_list])
         if sauce_list:
             children.append(heading3("Sauce"))
-            children.extend([checkbox(i) for i in sauce_list])
+            children.extend([checkbox(i, rich=True) for i in sauce_list])
         if spice_list:
             children.append(heading3("Spices & Herbs"))
-            children.extend([checkbox(i) for i in spice_list])
+            children.extend([checkbox(i, rich=True) for i in spice_list])
         children += [
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": "👨‍🍳 Steps"}}]}},
