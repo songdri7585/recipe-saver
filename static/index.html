@@ -7,270 +7,75 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --cream: #faf7f2;
       --brown: #3d2c1e;
       --orange: #e8682a;
       --light: #f0ebe3;
       --border: #ddd5c8;
+      --red: #e03030;
     }
+    body { background: var(--cream); font-family: 'DM Sans', sans-serif; color: var(--brown); min-height: 100vh; }
+    header { background: var(--brown); color: var(--cream); padding: 24px 40px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-family: 'Playfair Display', serif; font-size: 28px; }
+    .container { max-width: 700px; margin: 48px auto; padding: 0 24px; }
 
-    body {
-      background: var(--cream);
-      font-family: 'DM Sans', sans-serif;
-      color: var(--brown);
-      min-height: 100vh;
-    }
+    /* Tabs */
+    .tabs { display: flex; gap: 0; margin-bottom: 24px; border-radius: 12px; overflow: hidden; border: 2px solid var(--border); }
+    .tab { flex: 1; padding: 14px; text-align: center; cursor: pointer; font-size: 15px; font-weight: 500; background: white; transition: all 0.2s; border: none; font-family: 'DM Sans', sans-serif; color: #888; }
+    .tab.active { background: var(--brown); color: white; }
 
-    header {
-      background: var(--brown);
-      color: var(--cream);
-      padding: 24px 40px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    header h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: 28px;
-      font-weight: 700;
-    }
-
-    header span {
-      font-size: 28px;
-    }
-
-    .container {
-      max-width: 700px;
-      margin: 48px auto;
-      padding: 0 24px;
-    }
-
-    .upload-card {
-      background: white;
-      border: 2px dashed var(--border);
-      border-radius: 16px;
-      padding: 48px 32px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .upload-card:hover, .upload-card.dragover {
-      border-color: var(--orange);
-      background: #fff8f5;
-    }
-
+    /* Upload card */
+    .upload-card { background: white; border: 2px dashed var(--border); border-radius: 16px; padding: 48px 32px; text-align: center; cursor: pointer; transition: all 0.2s; }
+    .upload-card:hover, .upload-card.dragover { border-color: var(--orange); background: #fff8f5; }
     .upload-icon { font-size: 48px; margin-bottom: 16px; }
-
-    .upload-card h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 22px;
-      margin-bottom: 8px;
-    }
-
-    .upload-card p {
-      color: #888;
-      font-size: 14px;
-      margin-bottom: 24px;
-    }
-
+    .upload-card h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
+    .upload-card p { color: #888; font-size: 14px; margin-bottom: 24px; }
     #fileInput { display: none; }
 
-    .btn {
-      background: var(--orange);
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: 50px;
-      font-size: 16px;
-      font-family: 'DM Sans', sans-serif;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
+    /* YouTube card */
+    .youtube-card { background: white; border: 2px solid var(--border); border-radius: 16px; padding: 40px 32px; display: none; }
+    .youtube-card h2 { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 8px; }
+    .youtube-card p { color: #888; font-size: 14px; margin-bottom: 24px; }
+    .url-input { width: 100%; padding: 14px 16px; border: 2px solid var(--border); border-radius: 10px; font-size: 15px; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s; }
+    .url-input:focus { border-color: var(--red); }
+    .youtube-note { margin-top: 12px; font-size: 12px; color: #aaa; }
 
+    .btn { background: var(--orange); color: white; border: none; padding: 14px 32px; border-radius: 50px; font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
     .btn:hover { background: #d45a20; transform: translateY(-1px); }
     .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+    .btn.youtube { background: var(--red); }
+    .btn.youtube:hover { background: #c02020; }
 
-    .previews {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 20px;
-      justify-content: center;
-    }
+    .previews { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; justify-content: center; }
+    .preview-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border); }
 
-    .preview-img {
-      width: 80px;
-      height: 80px;
-      object-fit: cover;
-      border-radius: 8px;
-      border: 2px solid var(--border);
-    }
+    .extract-btn { margin-top: 24px; width: 100%; justify-content: center; padding: 16px; font-size: 17px; border-radius: 12px; }
 
-    .extract-btn {
-      margin-top: 24px;
-      width: 100%;
-      justify-content: center;
-      padding: 16px;
-      font-size: 17px;
-      border-radius: 12px;
-    }
+    .status { margin-top: 20px; padding: 16px 20px; border-radius: 12px; font-size: 15px; display: none; }
+    .status.loading { background: #fff8f0; border: 1px solid #ffd5b0; color: var(--brown); display: flex; align-items: center; gap: 10px; }
+    .status.success { background: #f0fff4; border: 1px solid #86efac; color: #166534; display: block; }
+    .status.error { background: #fff0f0; border: 1px solid #fca5a5; color: #991b1b; display: block; }
+    .status.imaginary { background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; display: block; }
 
-    .status {
-      margin-top: 20px;
-      padding: 16px 20px;
-      border-radius: 12px;
-      font-size: 15px;
-      display: none;
-    }
-
-    .status.loading {
-      background: #fff8f0;
-      border: 1px solid #ffd5b0;
-      color: var(--brown);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .status.success {
-      background: #f0fff4;
-      border: 1px solid #86efac;
-      color: #166534;
-      display: block;
-    }
-
-    .status.error {
-      background: #fff0f0;
-      border: 1px solid #fca5a5;
-      color: #991b1b;
-      display: block;
-    }
-
-    .spinner {
-      width: 20px; height: 20px;
-      border: 2px solid #ffd5b0;
-      border-top-color: var(--orange);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      flex-shrink: 0;
-    }
-
+    .spinner { width: 20px; height: 20px; border: 2px solid #ffd5b0; border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .recipe-result {
-      margin-top: 32px;
-      background: white;
-      border-radius: 16px;
-      padding: 32px;
-      border: 1px solid var(--border);
-      display: none;
-    }
-
+    .recipe-result { margin-top: 32px; background: white; border-radius: 16px; padding: 32px; border: 1px solid var(--border); display: none; }
     .recipe-result.show { display: block; }
-
-    .recipe-result h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 26px;
-      margin-bottom: 8px;
-    }
-
-    .meta {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-    }
-
-    .meta-tag {
-      background: var(--light);
-      padding: 6px 14px;
-      border-radius: 50px;
-      font-size: 13px;
-      color: #666;
-    }
-
-    .section-title {
-      font-weight: 600;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--orange);
-      margin-bottom: 12px;
-      margin-top: 24px;
-    }
-
-    .ingredients-list {
-      list-style: none;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-
-    .ingredients-list li {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-    }
-
-    .ingredients-list li::before {
-      content: '•';
-      color: var(--orange);
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    .steps-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .steps-list li {
-      display: flex;
-      gap: 12px;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-
-    .step-num {
-      background: var(--orange);
-      color: white;
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 600;
-      flex-shrink: 0;
-      margin-top: 2px;
-    }
-
-    .notion-link {
-      margin-top: 20px;
-      text-align: center;
-      font-size: 14px;
-      color: #888;
-    }
-
+    .recipe-result h2 { font-family: 'Playfair Display', serif; font-size: 26px; margin-bottom: 8px; }
+    .meta { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .meta-tag { background: var(--light); padding: 6px 14px; border-radius: 50px; font-size: 13px; color: #666; }
+    .section-title { font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--orange); margin-bottom: 12px; margin-top: 24px; }
+    .ingredients-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ingredients-list li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .ingredients-list li::before { content: '•'; color: var(--orange); font-size: 18px; flex-shrink: 0; }
+    .steps-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+    .steps-list li { display: flex; gap: 12px; font-size: 14px; line-height: 1.6; }
+    .step-num { background: var(--orange); color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
+    .notion-link { margin-top: 20px; text-align: center; font-size: 14px; color: #888; }
     .notion-link strong { color: #166534; }
-
-    @media (max-width: 500px) {
-      .ingredients-list { grid-template-columns: 1fr; }
-      header { padding: 16px 20px; }
-      .container { margin: 24px auto; }
-    }
+    @media (max-width: 500px) { .ingredients-list { grid-template-columns: 1fr; } header { padding: 16px 20px; } .container { margin: 24px auto; } }
   </style>
 </head>
 <body>
@@ -281,30 +86,47 @@
 </header>
 
 <div class="container">
-  <div class="upload-card" id="dropZone">
-    <div class="upload-icon">📸</div>
-    <h2>Upload Recipe Screenshots</h2>
-    <p>Take screenshots from Instagram Reels or any recipe source and upload them here</p>
-    <button class="btn" onclick="document.getElementById('fileInput').click()">
-      Choose Images
-    </button>
-    <input type="file" id="fileInput" accept="image/*" multiple />
-    <div class="previews" id="previews"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('image')">📸 Upload Screenshot</button>
+    <button class="tab" onclick="switchTab('youtube')">📺 YouTube Shorts</button>
   </div>
 
-  <button class="btn extract-btn" id="extractBtn" disabled onclick="extractRecipe()">
-    ✨ Extract & Save to Notion
-  </button>
+  <!-- Image Upload -->
+  <div id="imagePanel">
+    <div class="upload-card" id="dropZone">
+      <div class="upload-icon">📸</div>
+      <h2>Upload Recipe Screenshots</h2>
+      <p>Take screenshots from Instagram Reels or any recipe source and upload them here</p>
+      <button class="btn" onclick="document.getElementById('fileInput').click()">Choose Images</button>
+      <input type="file" id="fileInput" accept="image/*" multiple />
+      <div class="previews" id="previews"></div>
+    </div>
+    <button class="btn extract-btn" id="extractBtnImage" disabled onclick="extractRecipe('image')">
+      ✨ Extract & Save to Notion
+    </button>
+  </div>
+
+  <!-- YouTube URL -->
+  <div id="youtubePanel" style="display:none;">
+    <div class="youtube-card" style="display:block;">
+      <div class="upload-icon">📺</div>
+      <h2>Paste YouTube Shorts Link</h2>
+      <p>Works with YouTube Shorts and regular YouTube videos that have captions</p>
+      <input type="text" class="url-input" id="youtubeUrl" placeholder="https://youtube.com/shorts/..." oninput="checkYoutubeUrl()" />
+      <p class="youtube-note">⚠️ Requires the video to have captions/subtitles enabled</p>
+    </div>
+    <button class="btn extract-btn youtube" id="extractBtnYoutube" disabled onclick="extractRecipe('youtube')">
+      📺 Extract & Save to Notion
+    </button>
+  </div>
 
   <div class="status loading" id="statusLoading">
     <div class="spinner"></div>
-    <span>Reading your recipe with AI... this takes about 10 seconds</span>
+    <span id="loadingText">Reading your recipe with AI... this takes about 10 seconds</span>
   </div>
-
-  <div class="status success" id="statusSuccess">
-    ✅ Recipe saved to your Notion database!
-  </div>
-
+  <div class="status success" id="statusSuccess"></div>
   <div class="status error" id="statusError"></div>
 
   <div class="recipe-result" id="recipeResult">
@@ -317,30 +139,40 @@
     <ul class="ingredients-list" id="ingredientsList"></ul>
     <div class="section-title">Steps</div>
     <ol class="steps-list" id="stepsList"></ol>
-    <div class="notion-link">✅ <strong>Saved to Notion!</strong> Check your Recipe database.</div>
+    <div class="notion-link">✅ <strong>Saved to Notion!</strong> Check your Recipe page.</div>
   </div>
 </div>
 
 <script>
   let selectedFiles = [];
+  let currentTab = 'image';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && tab === 'image') || (i === 1 && tab === 'youtube')));
+    document.getElementById('imagePanel').style.display = tab === 'image' ? 'block' : 'none';
+    document.getElementById('youtubePanel').style.display = tab === 'youtube' ? 'block' : 'none';
+    resetStatus();
+  }
+
+  function resetStatus() {
+    document.getElementById('statusLoading').style.display = 'none';
+    document.getElementById('statusSuccess').style.display = 'none';
+    document.getElementById('statusError').style.display = 'none';
+    document.getElementById('recipeResult').classList.remove('show');
+  }
 
   const fileInput = document.getElementById('fileInput');
-  const previews = document.getElementById('previews');
-  const extractBtn = document.getElementById('extractBtn');
   const dropZone = document.getElementById('dropZone');
 
   fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
-
   dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    handleFiles(e.dataTransfer.files);
-  });
+  dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
 
   function handleFiles(files) {
     selectedFiles = Array.from(files);
+    const previews = document.getElementById('previews');
     previews.innerHTML = '';
     selectedFiles.forEach(file => {
       const img = document.createElement('img');
@@ -348,42 +180,59 @@
       img.src = URL.createObjectURL(file);
       previews.appendChild(img);
     });
-    extractBtn.disabled = selectedFiles.length === 0;
+    document.getElementById('extractBtnImage').disabled = selectedFiles.length === 0;
   }
 
-  async function extractRecipe() {
-    if (selectedFiles.length === 0) return;
+  function checkYoutubeUrl() {
+    const url = document.getElementById('youtubeUrl').value.trim();
+    document.getElementById('extractBtnYoutube').disabled = !url.includes('youtube.com') && !url.includes('youtu.be');
+  }
 
-    // Reset UI
+  async function extractRecipe(mode) {
+    resetStatus();
     document.getElementById('statusLoading').style.display = 'flex';
-    document.getElementById('statusSuccess').style.display = 'none';
-    document.getElementById('statusError').style.display = 'none';
-    document.getElementById('recipeResult').classList.remove('show');
-    extractBtn.disabled = true;
 
     const formData = new FormData();
-    selectedFiles.forEach(file => formData.append('images', file));
+
+    if (mode === 'youtube') {
+      const url = document.getElementById('youtubeUrl').value.trim();
+      formData.append('youtube_url', url);
+      document.getElementById('loadingText').textContent = 'Fetching captions from YouTube... this may take 15 seconds';
+      document.getElementById('extractBtnYoutube').disabled = true;
+    } else {
+      selectedFiles.forEach(file => formData.append('images', file));
+      document.getElementById('loadingText').textContent = 'Reading your recipe with AI... this takes about 10 seconds';
+      document.getElementById('extractBtnImage').disabled = true;
+    }
 
     try {
       const res = await fetch('/extract', { method: 'POST', body: formData });
       const data = await res.json();
-
       document.getElementById('statusLoading').style.display = 'none';
 
       if (!res.ok || data.error) {
         document.getElementById('statusError').textContent = '❌ ' + (data.error || 'Something went wrong');
         document.getElementById('statusError').style.display = 'block';
       } else {
-        document.getElementById('statusSuccess').style.display = 'block';
+        const successEl = document.getElementById('statusSuccess');
+        if (data.isImaginary) {
+          successEl.textContent = '🤖 No written recipe found — AI imagined a recipe from your photo and saved it to Notion!';
+        } else if (data.source === 'youtube') {
+          successEl.textContent = '📺 Recipe extracted from YouTube captions and saved to Notion!';
+        } else {
+          successEl.textContent = '✅ Recipe saved to your Notion page!';
+        }
+        successEl.style.display = 'block';
         showRecipe(data.recipe);
       }
     } catch (err) {
       document.getElementById('statusLoading').style.display = 'none';
-      document.getElementById('statusError').textContent = '❌ Network error. Is the server running?';
+      document.getElementById('statusError').textContent = '❌ Network error. Please try again.';
       document.getElementById('statusError').style.display = 'block';
     }
 
-    extractBtn.disabled = false;
+    document.getElementById('extractBtnImage').disabled = false;
+    document.getElementById('extractBtnYoutube').disabled = false;
   }
 
   function showRecipe(recipe) {
