@@ -102,14 +102,14 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             spice_list = ingredients.get("spicesAndHerbs", [])
 
         def parse_ingredient_rich_text(text):
-            # Split "1 cup flour (120g)" into main text and grey parenthetical
-            match = re.search(r'(.*?)(\s*\([^)]+\))\s*$', text)
+            # Split "1 cup flour (120g)" into original measure and grey conversion
+            match = re.search(r'^(.*?)(\s*\(\s*[\d.]+\s*g\s*\))\s*$', text)
             if match:
                 main = match.group(1).strip()
-                note = match.group(2).strip()
+                converted = "    " + match.group(2).strip()
                 return [
-                    {"type": "text", "text": {"content": main + " "}},
-                    {"type": "text", "text": {"content": note}, "annotations": {"color": "gray", "italic": True}}
+                    {"type": "text", "text": {"content": main}},
+                    {"type": "text", "text": {"content": converted}, "annotations": {"color": "gray"}}
                 ]
             return [{"type": "text", "text": {"content": text}}]
 
@@ -170,6 +170,8 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
                     ]
                 }
             })
+
+
 
         title = recipe.get("title", "Untitled Recipe")
         if is_imaginary:
