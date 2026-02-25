@@ -151,21 +151,11 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         children = []
         if is_imaginary:
             children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Use as inspiration only!"}}], "icon": {"emoji": "🤖"}, "color": "yellow_background"}})
-        if source == "text":
-            children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "📝 Extracted from pasted recipe text."}}], "icon": {"emoji": "📝"}, "color": "blue_background"}})
+
 
         children += [
-            {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     👥 Servings: {recipe.get('servings') or 'N/A'}"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
-            {
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [
-                        {"type": "text", "text": {"content": "⭐ My Rating:   "}, "annotations": {"bold": True}},
-                        {"type": "text", "text": {"content": "☆ ☆ ☆ ☆ ☆"}, "annotations": {"color": "yellow", "bold": True}}
-                    ]
-                }
-            },
+            {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     ⭐ My Rating:  ☆ ☆ ☆ ☆ ☆"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
+
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": h_ingredients}}]}},
         ]
