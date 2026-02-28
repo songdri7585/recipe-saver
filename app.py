@@ -156,6 +156,7 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             return blocks
 
         children = []
+          {"object": "block", "type": "image", "image": {"type": "external", "external": {"url": "https://via.placeholder.com/800x400?text=Add+your+photo+here"}}}
         if is_imaginary:
             children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Use as inspiration only!"}}], "icon": {"emoji": "🤖"}, "color": "yellow_background"}})
 
