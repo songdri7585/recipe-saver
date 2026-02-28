@@ -225,12 +225,11 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
         notion_response = notion.pages.create(
             parent={"database_id": notion_database_id},
+            icon={"emoji": "🤖" if is_imaginary else "🍽️"},
             properties={
-                "Name": {"title": [{"text": {"content": title}}]},
+                "title": {"title": [{"text": {"content": title}}]},
                 "Category": {"multi_select": [{"name": c} for c in recipe.get("categories", [])]}
             },
-            icon={"emoji": "🤖" if is_imaginary else "🍽️"},
-            properties={"title": {"title": [{"text": {"content": title}}]}},
             children=children
         )
 
