@@ -93,6 +93,13 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             recipe = json.loads(text)
             source = "image"
 
+            # Double-check if recipe is imaginary with a separate simple question
+            check_parts = ["Does this image contain actual written recipe text — meaning a real ingredients list with quantities AND/OR numbered cooking steps? Captions, hashtags, usernames, titles, or short descriptions do NOT count. Answer only YES or NO."] + [{"inline_data": img} for img in image_parts]
+            check_response = model.generate_content(check_parts)
+            has_text = "YES" in check_response.text.upper()
+            if not has_text:
+                recipe['isImaginary'] = True
+
         # --- SAVE TO NOTION ---
         notion_token = os.environ.get("NOTION_TOKEN")
         notion_page_id = os.environ.get("NOTION_PAGE_ID")
@@ -214,7 +221,7 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
         if is_imaginary:
             title = f"✨ {title} (AI Recipe)"
 
-        notion.pages.create(
+        notion_response = notion.pages.create(
             parent={"page_id": notion_page_id},
             icon={"emoji": "🤖" if is_imaginary else "🍽️"},
             properties={"title": {"title": [{"text": {"content": title}}]}},
@@ -223,7 +230,8 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
         all_ingredients = main_list + sauce_list + spice_list
         flat_steps = [s if isinstance(s, str) else s.get("instruction", "") for s in steps]
-        return jsonify({'success': True, 'isImaginary': is_imaginary, 'source': source, 'recipe': {**recipe, 'ingredients': all_ingredients, 'steps': flat_steps}})
+        notion_url = notion_response.get('url', '')
+        return jsonify({'success': True, 'isImaginary': is_imaginary, 'source': source, 'notion_url': notion_url, 'recipe': {**recipe, 'ingredients': all_ingredients, 'steps': flat_steps}})
 
     except json.JSONDecodeError:
         return jsonify({'error': 'Could not parse recipe. Try again or rephrase the text.'}), 500
