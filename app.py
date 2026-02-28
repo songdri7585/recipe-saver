@@ -29,9 +29,11 @@ RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these field
   ],
   "cookTime": "time or null",
   "servings": "servings or null",
-  "lang": "en"
+  "lang": "en",
+  "categories": ["Meal"]
 }
 Set "lang" to "fr" if the recipe is in French, "ko" if Korean, "en" for everything else.
+For "categories", pick ALL that apply from this list: "Breakfast", "Meal", "Salad", "Dessert", "Bread", "Drinks & Smoothies". A recipe can have multiple categories.
 
 IMPORTANT CONVERSION RULES:
 1. TEMPERATURE: Always convert Fahrenheit to Celsius. Write as "200°C" only. Never use Fahrenheit in output.
@@ -223,6 +225,10 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
         notion_response = notion.pages.create(
             parent={"database_id": notion_database_id},
+            properties={
+                "Name": {"title": [{"text": {"content": title}}]},
+                "Category": {"multi_select": [{"name": c} for c in recipe.get("categories", [])]}
+            },
             icon={"emoji": "🤖" if is_imaginary else "🍽️"},
             properties={"title": {"title": [{"text": {"content": title}}]}},
             children=children
