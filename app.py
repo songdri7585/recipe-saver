@@ -102,8 +102,8 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
         # --- SAVE TO NOTION ---
         notion_token = os.environ.get("NOTION_TOKEN")
-        notion_page_id = os.environ.get("NOTION_PAGE_ID")
-        if not notion_token or not notion_page_id:
+        notion_database_id = os.environ.get("NOTION_DATABASE_ID")
+        if not notion_token or not notion_database_id:
             return jsonify({'error': 'Notion not configured'}), 500
 
         notion = Client(auth=notion_token)
@@ -156,13 +156,12 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             return blocks
 
         children = []
-          {"object": "block", "type": "image", "image": {"type": "external", "external": {"url": "https://via.placeholder.com/800x400?text=Add+your+photo+here"}}}
         if is_imaginary:
             children.append({"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": "⚠️ This is an AI-imagined recipe based on a food photo. Use as inspiration only!"}}], "icon": {"emoji": "🤖"}, "color": "yellow_background"}})
 
 
         children += [
-{"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"type": "text", "text": {"content": "📷 Add your photo here"}, "annotations": {"color": "gray", "italic": True}}]}}
+            {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     ⭐ My Rating:  ☆ ☆ ☆ ☆ ☆"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
 
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": h_ingredients}}]}},
@@ -223,7 +222,7 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
             title = f"✨ {title} (AI Recipe)"
 
         notion_response = notion.pages.create(
-            parent={"page_id": notion_page_id},
+            parent={"database_id": notion_database_id},
             icon={"emoji": "🤖" if is_imaginary else "🍽️"},
             properties={"title": {"title": [{"text": {"content": title}}]}},
             children=children
