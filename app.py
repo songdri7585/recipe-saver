@@ -43,7 +43,7 @@ LANGUAGE RULES:
 - If the recipe is in any other language, translate everything to English.
 - The section headers (like ingredients, steps) should also match the recipe language. For French use: "Ingrédients principaux", h_sauce, "Épices & Herbes", "Étapes". For Korean use: "주재료", "소스", "양념 & 허브", "조리 방법".
 
-Set "isImaginary" to true only if guessing from a photo with no recipe text.
+Set "isImaginary" to true if the image contains NO written recipe text and you are creating the recipe yourself based on what the food looks like. Set to false ONLY if there is actual written recipe text visible in the image.
 Categorize ingredients: main = proteins, vegetables, grains, dairy. sauce = liquids, oils, vinegars, condiments. spicesAndHerbs = dried/fresh spices, herbs, seasonings, salt, pepper.
 For each step, list only the ingredients actually used in that step. If none, return empty array.
 No markdown, no extra text, just the JSON."""
