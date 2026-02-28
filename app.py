@@ -235,6 +235,8 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
         all_ingredients = main_list + sauce_list + spice_list
         flat_steps = [s if isinstance(s, str) else s.get("instruction", "") for s in steps]
+        print("DEBUG categories:", recipe.get("categories", []), flush=True)
+        print("DEBUG notion response:", notion_response.get("url"), flush=True)
         notion_url = notion_response.get('url', '')
         return jsonify({'success': True, 'isImaginary': is_imaginary, 'source': source, 'notion_url': notion_url, 'recipe': {**recipe, 'ingredients': all_ingredients, 'steps': flat_steps}})
 
