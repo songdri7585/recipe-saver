@@ -150,7 +150,7 @@
     <ul class="ingredients-list" id="ingredientsList"></ul>
     <div class="section-title">Steps</div>
     <ul class="steps-list" id="stepsList"></ul>
-    <div class="notion-link">✅ <strong>Saved to Notion!</strong> Check your Recipe page.</div>
+    <div class="notion-link" id="notionLink">✅ <strong>Saved to Notion!</strong> Check your Recipe page.</div>
   </div>
 
 </div>
@@ -243,6 +243,7 @@
         }
         successEl.style.display = 'block';
         showRecipe(data.recipe);
+        if (data.notion_url) updateNotionLink(data.notion_url);
       }
     } catch (err) {
       document.getElementById('statusLoading').style.display = 'none';
@@ -252,6 +253,15 @@
 
     document.getElementById('extractBtnImage').disabled = false;
     document.getElementById('extractBtnText').disabled = false;
+  }
+
+  function updateNotionLink(url) {
+    const el = document.getElementById('notionLink');
+    if (url) {
+      // Convert https://notion.so/... to notion:// to open the Notion app directly
+      const appUrl = url.replace('https://www.notion.so/', 'notion://www.notion.so/').replace('https://notion.so/', 'notion://notion.so/');
+      el.innerHTML = '✅ <strong>Saved to Notion!</strong> <a href="' + appUrl + '" style="color:#5c3d1e;font-weight:600;text-decoration:underline;">→ Open in Notion</a>';
+    }
   }
 
   function showRecipe(recipe) {
