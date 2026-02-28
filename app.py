@@ -162,7 +162,7 @@ CASE 2: If the image only shows a food photo without a written recipe, create a 
 
 
         children += [
-            {"object": "block", "type": "callout", "callout": {"rich_text": [{"type": "text", "text": {"content": f"⏱ Cook Time: {recipe.get('cookTime') or 'N/A'}     ⭐ My Rating:  ☆ ☆ ☆ ☆ ☆"}}], "icon": {"emoji": "🍳"}, "color": "orange_background"}},
+{"object": "block", "type": "paragraph", "paragraph": {"rich_text": [{"type": "text", "text": {"content": "📷 Add your photo here"}, "annotations": {"color": "gray", "italic": True}}]}}
 
             {"object": "block", "type": "divider", "divider": {}},
             {"object": "block", "type": "heading_2", "heading_2": {"rich_text": [{"type": "text", "text": {"content": h_ingredients}}]}},
