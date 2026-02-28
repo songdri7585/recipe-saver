@@ -33,7 +33,7 @@ RECIPE_PROMPT_JSON = """Return ONLY a valid JSON object with exactly these field
   "categories": ["Meal"]
 }
 Set "lang" to "fr" if the recipe is in French, "ko" if Korean, "en" for everything else.
-For "categories", pick ALL that apply from this list: "Breakfast", "Meal", "Salad", "Dessert", "Bread", "Drinks & Smoothies". A recipe can have multiple categories.
+For "categories", pick ALL that apply from this list: "Breakfast", "Meal", "Salad", "Dessert", "Bread", "Drinks". A recipe can have multiple categories.
 
 IMPORTANT CONVERSION RULES:
 1. TEMPERATURE: Always convert Fahrenheit to Celsius. Write as "200°C" only. Never use Fahrenheit in output.
